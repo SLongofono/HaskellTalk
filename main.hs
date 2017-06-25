@@ -6,14 +6,15 @@ import Data.List.Split
 
 data Prefix = Prefix [String] deriving (Show, Eq, Ord)
 
-buildKeys :: [String] -> Int-> [(Prefix, [String])]
-buildKeys xs n
-    | (length xs) > n = (Prefix (init pref), [last pref]) : (buildKeys (tail xs) n)
+buildKeys :: [String] -> [String] -> Int-> [(Prefix, [String])]
+buildKeys [] x n = buildKeys (replicate n "") x n
+buildKeys _ [] _ = []
+buildKeys carry l@(x:xs) n
+    | (length l) > n = (Prefix carry, [x]) : (buildKeys ((tail carry) ++ [x]) xs n)
     | otherwise = []
-        where pref = take (n+1) xs
 
 buildMap :: [String] -> Int -> Map.Map Prefix [String]
-buildMap x n = Map.fromListWith mappend $ buildKeys x n
+buildMap x n = Map.fromListWith mappend $ buildKeys [] x n
 
 pickWord :: Prefix -> Map.Map Prefix [String] -> IO String
 pickWord p m = let as = g $ Map.lookup p m in randomRIO (0, (length as)-1) >>= (return . (as!!))
@@ -29,7 +30,7 @@ gen n p@(Prefix pa) m = do
 
 main = do
     fullTxt <- getContents
-    let n = 4
+    let n = 3
     let sentences = splitOn "." fullTxt :: [String]
-    let mp = foldr (Map.unionWith (++)) Map.empty $ map (\x -> buildMap ((replicate n "") ++ (words x)) n) sentences
-    gen 30 (Prefix (replicate n "")) mp >>= (putStrLn . unwords)
+    let mp = foldr (Map.unionWith (++)) Map.empty $ map (\x -> buildMap (words x) n) sentences
+    gen 60 (Prefix (replicate n "")) mp >>= (putStrLn . unwords)

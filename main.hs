@@ -1,32 +1,35 @@
 import qualified Data.Map as Map
 import Control.Monad
+import Data.Monoid
 import System.Random
-import qualified Data.Maybe as Maybe
+import Data.List.Split
 
-data Prefix = Prefix String String deriving (Show, Eq, Ord)
+data Prefix = Prefix [String] deriving (Show, Eq, Ord)
 
-buildKeys :: [String] -> [(Prefix, [String])]
-buildKeys (x:y:z:xs) = (Prefix x y, [z]) : (buildKeys (y:z:xs))
-buildKeys _          = []
+buildKeys :: [String] -> Int-> [(Prefix, [String])]
+buildKeys xs n
+    | (length xs) > n = (Prefix (init pref), [last pref]) : (buildKeys (tail xs) n)
+    | otherwise = []
+        where pref = take (n+1) xs
 
-buildMap :: [String] -> Map.Map Prefix [String]
-buildMap x = Map.fromListWith mappend $ buildKeys x
+buildMap :: [String] -> Int -> Map.Map Prefix [String]
+buildMap x n = Map.fromListWith mappend $ buildKeys x n
 
-pickWord :: Prefix -> Map.Map Prefix [String] -> Maybe (IO String)
-pickWord p m = do
-    as <- Map.lookup p m :: Maybe [String]
-    let a = randomRIO (0, (length as)-1) >>= (return . (as!!))
-    return a
+pickWord :: Prefix -> Map.Map Prefix [String] -> IO String
+pickWord p m = let as = g $ Map.lookup p m in randomRIO (0, (length as)-1) >>= (return . (as!!))
+    where g Nothing = [""]
+          g (Just as) = as
 
-gen :: Int -> Prefix -> Map.Map Prefix [String] -> Maybe (IO [String])
-gen 0 _ _ = Just (return [])
-gen n p@(Prefix pa pb) m = do
-    nxt <- pickWord p m :: Maybe (IO String)
-    let fol = nxt >>= (\x -> (g (gen (n-1) (Prefix pb x) m)) >>= (return .(x:)))  :: IO [String]
-            where g (Nothing) = return []
-                  g (Just a) = a
-    return fol
+gen :: Int -> Prefix -> Map.Map Prefix [String] -> IO [String]
+gen 0 _ _ = return []
+gen n p@(Prefix pa) m = do
+    nxt <- pickWord p m :: IO String
+    fol <- gen (n-1) (Prefix ((tail pa) ++ [nxt])) m
+    return (nxt:fol)
 
-main = getContents >>= (\inp -> p $ gen 10 (Prefix "" "") $ buildMap (["",""] ++ (words inp)))
-        where p (Nothing) = putStrLn "Nothing"
-              p (Just a) = a >>= print
+main = do
+    fullTxt <- getContents
+    let n = 4
+    let sentences = splitOn "." fullTxt :: [String]
+    let mp = foldr (Map.unionWith (++)) Map.empty $ map (\x -> buildMap ((replicate n "") ++ (words x)) n) sentences
+    gen 30 (Prefix (replicate n "")) mp >>= (putStrLn . unwords)

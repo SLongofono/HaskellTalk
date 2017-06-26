@@ -17,19 +17,23 @@ buildMap x n = Map.fromListWith mappend $ buildKeys [] x n
 pickWord :: (Monoid a, Ord a) => [a] -> Map.Map [a] [a] -> IO a
 pickWord p m = let as = g $ Map.lookup p m in randomRIO (0, (length as)-1) >>= (return . (as!!))
     where g Nothing = [mempty]
-          g (Just as) = as
+          g (Just xs) = xs
 
 gen :: (Monoid a, Ord a) => Int -> [a] -> Map.Map [a] [a] -> IO [a]
 gen 0 _ _ = return []
 gen n p m = do
     nxt <- pickWord p m
     fol <- gen (n-1) ((tail p) ++ [nxt]) m
-    return (nxt:fol)
+    return $ nxt:fol
+
+ignoreBlanks a b
+    | a=="" = b
+    | b=="" = a
+    | otherwise = a ++ " " ++ b
 
 main = do
     fullTxt <- getContents
     let n = 2
     let sentences = lines fullTxt :: [String]
-    let mp = foldr (Map.unionWith (++)) Map.empty $ map (\x -> buildMap (words x) n) sentences
-    gen 60 (replicate n "") mp >>= (putStrLn . unwords)
-    --print $ mp
+    let mp = foldr (Map.unionWith mappend) Map.empty $ map (\x -> buildMap (words x) n) sentences
+    gen 60 (replicate n "") mp >>= (putStrLn . (foldr ignoreBlanks ""))

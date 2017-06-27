@@ -3,6 +3,7 @@ import Control.Monad
 import Data.Monoid
 import System.Random
 import Data.List.Split
+import qualified Twitter as T
 
 buildKeys :: (Monoid a, Ord a) => [a] -> [a] -> Int-> [([a], [a])]
 buildKeys [] x n = buildKeys (replicate n mempty) x n
@@ -36,4 +37,4 @@ main = do
     let n = 2
     let sentences = lines fullTxt :: [String]
     let mp = foldr (Map.unionWith mappend) Map.empty $ map (\x -> buildMap (words x) n) sentences
-    gen 60 (replicate n "") mp >>= (putStrLn . (foldr ignoreBlanks ""))
+    gen 20 (replicate n "") mp >>= (T.tweet . (foldr ignoreBlanks ""))

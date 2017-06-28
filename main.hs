@@ -21,9 +21,10 @@ pickWord p m = let as = g $ Map.lookup p m in randomRIO (0, (length as)-1) >>= (
           g (Just xs) = xs
 
 gen :: (Monoid a, Ord a) => Int -> [a] -> Map.Map [a] [a] -> IO [a]
+gen 0 _ _ = return []
 gen n p m = do
     nxt <- pickWord p m
-    fol <- if nxt==mempty && n<=0 then return [] else gen (n-1) ((tail p) ++ [nxt]) m
+    fol <- if nxt==mempty && n<=5 then return [] else gen (n-1) ((tail p) ++ [nxt]) m
     return $ nxt:fol
 
 ignoreBlanks a b
@@ -31,9 +32,18 @@ ignoreBlanks a b
     | b=="" = a
     | otherwise = a ++ " " ++ b
 
-main = do
-    fullTxt <- getContents
+getLastTweets :: String -> Int -> IO [String]
+getLastTweets userId n = do
+    tweets <- T.getTweets userId 0 n
+    return $ map T.text tweets
+
+genTweetFromUser :: String -> IO String
+genTweetFromUser user_id = do
     let n = 2
-    let sentences = lines fullTxt :: [String]
+    sentences <- getLastTweets user_id 1000
     let mp = foldr (Map.unionWith mappend) Map.empty $ map (\x -> buildMap (words x) n) sentences
-    gen 20 (replicate n "") mp >>= (T.tweet . (foldr ignoreBlanks ""))
+    alt <- gen 15 (replicate n "") mp >>= (return . (foldr ignoreBlanks ""))
+    putStrLn alt
+    return alt
+
+main = genTweetFromUser "25073877" >>= T.tweet

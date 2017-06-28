@@ -25,5 +25,5 @@ tweet t = do
                [("status",pack t)]
     req' <- (flip (signOAuth auth)) req $ (uncurry newCredential) tokens
     manager <- newManager tlsManagerSettings
-    _ <- httpLbs req' manager --tbh don't care about errors
+    _ <- httpLbs req' manager
     return ()

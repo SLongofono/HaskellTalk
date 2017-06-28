@@ -23,7 +23,7 @@ pickWord p m = let as = g $ Map.lookup p m in randomRIO (0, (length as)-1) >>= (
 gen :: (Monoid a, Ord a) => Int -> [a] -> Map.Map [a] [a] -> IO [a]
 gen n p m = do
     nxt <- pickWord p m
-    fol <- if nxt==mempty && n<=0 then return [mempty] else gen (n-1) ((tail p) ++ [nxt]) m
+    fol <- if nxt==mempty && n<=0 then return [] else gen (n-1) ((tail p) ++ [nxt]) m
     return $ nxt:fol
 
 ignoreBlanks a b

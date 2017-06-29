@@ -4,11 +4,12 @@
 module Twitter where
 
 
-import Data.Aeson
+import Data.Aeson (FromJSON)
 import Network.HTTP.Conduit
-import Network.HTTP.Simple hiding (httpLbs)
-import Control.Applicative
+import Network.HTTP.Simple (httpJSON)
 import Control.Monad
+import Control.Monad.Trans.Maybe
+import Control.Monad.Trans
 import Web.Authenticate.OAuth
 import Data.ByteString.Char8 (pack)
 
@@ -33,22 +34,26 @@ auth = newOAuth {
 tweet :: String -> IO ()
 tweet t = do
     initReq <- parseRequest "https://api.twitter.com/1.1/statuses/update.json"
-    let req = (flip urlEncodedBody) initReq $ 
-               [("status",pack t)]
+    let req = urlEncodedBody [("status",pack t)] initReq
     req' <- (flip (signOAuth auth)) req $ (uncurry newCredential) tokens
     manager <- newManager tlsManagerSettings
     httpLbs req' manager >>= (print . responseStatus)
 
-getTweets :: String -> Integer -> Int-> IO [Tweet]
-getTweets userID maxId count = do
-    initReq <- parseRequest $
+getTweets :: String -> Int -> MaybeT IO [Tweet]
+getTweets userID count = tryGetTweets userID 0 count
+
+tryGetTweets :: String -> Integer -> Int-> MaybeT IO [Tweet]
+tryGetTweets userID maxId count = do
+    initReq <- liftIO $ parseRequest $
         "https://api.twitter.com/1.1/statuses/user_timeline.json?user_id="
-        ++ userID ++ "&count=" ++ (show (if count > 180 then 180 else count))
+        ++ userID ++ "&count=" ++ (show $ min 180 count)
         ++ (if maxId /= 0 then "&max_id=" ++ (show maxId) else [])
-    req <- (flip (signOAuth auth)) initReq $ (uncurry newCredential) tokens
-    response <- httpJSON req
-    let tws = responseBody response
-    let lastId = Twitter.id $ Prelude.last tws
-    fol <- if count <= 180 then return []
-                 else getTweets userID lastId (count-180)
+    req <- liftIO $ (flip (signOAuth auth)) initReq $ (uncurry newCredential) tokens
+    response <- lift $ httpJSON req
+    let _tws = responseBody response
+    liftIO $ print $ length _tws
+    tws <- if (length _tws) == 0 then mzero else return _tws
+    let lastId = Twitter.id $ last tws
+    fol <- if count <= 180 then lift $ return []
+                 else tryGetTweets userID lastId (count-180)
     return $ tws++fol
